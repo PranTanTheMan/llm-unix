@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { BiClipboard, BiCheck } from "react-icons/bi";
+import { formatInTimeZone } from "date-fns-tz";
+import { formatDistanceToNow } from "date-fns";
+import { enUS } from "date-fns/locale";
 
 interface TableRow {
   style: string;
@@ -10,10 +13,12 @@ interface TableRow {
 
 interface DiscordTimestampTableProps {
   timestamp: number | null;
+  timeZone: string;
 }
 
 const DiscordTimestampTable: React.FC<DiscordTimestampTableProps> = ({
   timestamp,
+  timeZone,
 }) => {
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
     {}
@@ -31,78 +36,39 @@ const DiscordTimestampTable: React.FC<DiscordTimestampTableProps> = ({
 
     switch (format) {
       case "t":
-        return date.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
+        return formatInTimeZone(date, timeZone, "h:mm a", { locale: enUS });
       case "T":
-        return date.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
-        });
+        return formatInTimeZone(date, timeZone, "h:mm:ss a", { locale: enUS });
       case "d":
-        return date.toLocaleDateString("en-US", {
-          month: "numeric",
-          day: "numeric",
-          year: "numeric",
-        });
+        return formatInTimeZone(date, timeZone, "MM/dd/yyyy", { locale: enUS });
       case "D":
-        return date.toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
+        return formatInTimeZone(date, timeZone, "MMMM d, yyyy", {
+          locale: enUS,
         });
       case "f":
       case undefined:
-        return date.toLocaleString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
+        return formatInTimeZone(date, timeZone, "MMMM d, yyyy h:mm a", {
+          locale: enUS,
         });
       case "F":
-        return date.toLocaleString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
+        return formatInTimeZone(date, timeZone, "EEEE, MMMM d, yyyy h:mm a", {
+          locale: enUS,
         });
       case "R":
-        const diff = now.getTime() - date.getTime();
-        const seconds = Math.floor(Math.abs(diff) / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-        const months = Math.floor(days / 30.44);
-        const years = Math.floor(months / 12);
+        const diff = date.getTime() - now.getTime();
+        const absDiff = Math.abs(diff);
+        const isFuture = diff > 0;
 
-        if (diff < 0) {
-          if (seconds < 60) return "in a few seconds";
-          if (minutes < 60)
-            return `in ${minutes} minute${minutes !== 1 ? "s" : ""}`;
-          if (hours < 24) return `in ${hours} hour${hours !== 1 ? "s" : ""}`;
-          if (days < 30) return `in ${days} day${days !== 1 ? "s" : ""}`;
-          if (months < 12)
-            return `in ${months} month${months !== 1 ? "s" : ""}`;
-          return `in ${years} year${years !== 1 ? "s" : ""}`;
-        } else {
-          if (seconds < 60) return "a few seconds ago";
-          if (minutes < 60)
-            return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
-          if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
-          if (days < 30) return `${days} day${days !== 1 ? "s" : ""} ago`;
-          if (months < 12)
-            return `${months} month${months !== 1 ? "s" : ""} ago`;
-          return `${years} year${years !== 1 ? "s" : ""} ago`;
+        if (absDiff < 60000) {
+          // less than a minute
+          return isFuture ? "in a few seconds" : "a few seconds ago";
         }
+
+        const distance = formatDistanceToNow(date, {
+          locale: enUS,
+          addSuffix: true,
+        });
+        return isFuture ? distance.replace("about ", "") : distance;
       default:
         return "Invalid format";
     }
@@ -170,6 +136,7 @@ const DiscordTimestampTable: React.FC<DiscordTimestampTableProps> = ({
   return (
     <div className="mt-6">
       <h2 className="text-lg font-semibold mb-2">Discord Timestamp Formats</h2>
+      <p className="mb-2">Time Zone: {timeZone}</p>
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-100">
