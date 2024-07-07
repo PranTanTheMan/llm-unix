@@ -1,7 +1,9 @@
 // @ts-nocheck
 "use client";
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { useForm } from "react-hook-form";
+import { GrPowerCycle } from "react-icons/gr";
+import { BiClipboard, BiCheck } from "react-icons/bi";
 
 export default function Form() {
   const {
@@ -12,6 +14,7 @@ export default function Form() {
   const [result, setResult] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const onSubmit = async (data: { naturalLanguage: string }) => {
     setIsLoading(true);
@@ -48,8 +51,10 @@ export default function Form() {
     }
   };
 
+  const handleCopiedSubmit = () => {};
+
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-xl">
+    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-xl">
       <h1 className="text-2xl font-bold mb-4">UNIX Timestamp Generator</h1>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -65,8 +70,8 @@ export default function Form() {
             {...register("naturalLanguage", {
               required: "This field is required",
             })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            placeholder="e.g., next Friday at 3pm"
+            className="mt-3 block py-2 pl-2 w-full rounded-md bg-neutral-50 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gray-50"
+            placeholder="next Friday at 3pm"
           />
           {errors.naturalLanguage && (
             <p className="mt-1 text-sm text-red-600">
@@ -74,13 +79,9 @@ export default function Form() {
             </p>
           )}
         </div>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
+        <RoundedSlideButton type="submit" disabled={isLoading}>
           {isLoading ? "Generating..." : "Generate Timestamp"}
-        </button>
+        </RoundedSlideButton>
       </form>
       {error && (
         <div className="mt-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -90,9 +91,16 @@ export default function Form() {
       {result !== null && (
         <div className="mt-4">
           <h2 className="text-lg font-semibold">Result:</h2>
-          <p className="text-xl font-mono bg-gray-100 p-2 rounded">
-            UNIX Timestamp: {result}
-          </p>
+          <div className="w-full p-2 rounded font-mono bg-gray-100 flex items-center justify-between">
+            <p className="text-xl">{result}</p>
+            <button onClick={() => setCopied(true)}>
+              {copied ? (
+                <BiCheck className="text-emerald-600" />
+              ) : (
+                <BiClipboard className="hover:text-zinc-300" />
+              )}
+            </button>
+          </div>
           <p className="mt-2 text-md">
             {new Date(result * 1000).toLocaleString()}
           </p>
@@ -101,3 +109,42 @@ export default function Form() {
     </div>
   );
 }
+
+const RoundedSlideButton = ({
+  type,
+  disabled,
+  children,
+  onClick,
+}: {
+  type: string;
+  disabled: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) => {
+  return (
+    <button
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+      className={`
+        relative w-full z-0 flex items-center justify-center gap-2 overflow-hidden rounded-lg border-[1px] 
+        border-zinc-400 px-4 py-2 font-semibold
+        uppercase text-zinc-900 transition-all duration-500
+        
+        before:absolute before:inset-0
+        before:-z-10 before:translate-x-[150%]
+        before:translate-y-[150%] before:scale-[2.5]
+        before:rounded-[100%] before:bg-zinc-800
+        before:transition-transform before:duration-1000
+        before:content-[""]
+
+        hover:scale-105 hover:text-zinc-100
+        hover:before:translate-x-[0%]
+        hover:before:translate-y-[0%]
+        active:scale-95`}
+    >
+      <GrPowerCycle />
+      <span>{children}</span>
+    </button>
+  );
+};
