@@ -2,9 +2,9 @@ import Form from "@/components/form";
 export default function Home() {
   return (
     <>
-      <main>
+      <div className="h-screen flex items-center">
         <Form />
-      </main>
+      </div>
     </>
   );
 }
