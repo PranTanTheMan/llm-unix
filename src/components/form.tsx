@@ -1,6 +1,6 @@
 // @ts-nocheck
 "use client";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { GrPowerCycle } from "react-icons/gr";
 import { BiClipboard, BiCheck } from "react-icons/bi";
@@ -16,6 +16,12 @@ export default function Form() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [timeZone, setTimeZone] = useState<string>("UTC");
+
+  useEffect(() => {
+    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    setTimeZone(userTimeZone);
+  }, []);
 
   const onSubmit = async (data: { naturalLanguage: string }) => {
     setIsLoading(true);
@@ -25,7 +31,7 @@ export default function Form() {
       const response = await fetch("/api/GenerateUnixTimestamp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: data.naturalLanguage }),
+        body: JSON.stringify({ input: data.naturalLanguage, timeZone }),
       });
 
       const responseData = await response.json();
@@ -61,7 +67,7 @@ export default function Form() {
   };
 
   return (
-    <div className=" mx-auto p-6 bg-white rounded-lg shadow-xl">
+    <div className="mx-auto p-6 bg-white rounded-lg shadow-xl">
       <h1 className="text-2xl font-bold mb-4">UNIX Timestamp Generator</h1>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -114,7 +120,7 @@ export default function Form() {
         </div>
       )}
 
-      <DiscordTimestampTable timestamp={result} />
+      <DiscordTimestampTable timestamp={result} timeZone={timeZone} />
     </div>
   );
 }
