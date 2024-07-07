@@ -4,6 +4,7 @@ import React, { ReactNode, useState } from "react";
 import { useForm } from "react-hook-form";
 import { GrPowerCycle } from "react-icons/gr";
 import { BiClipboard, BiCheck } from "react-icons/bi";
+import DiscordTimestampTable from "./table";
 
 export default function Form() {
   const {
@@ -51,10 +52,16 @@ export default function Form() {
     }
   };
 
-  const handleCopiedSubmit = () => {};
+  const handleCopiedSubmit = () => {
+    navigator.clipboard.writeText(result?.toString());
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+  };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-xl">
+    <div className=" mx-auto p-6 bg-white rounded-lg shadow-xl">
       <h1 className="text-2xl font-bold mb-4">UNIX Timestamp Generator</h1>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -93,11 +100,11 @@ export default function Form() {
           <h2 className="text-lg font-semibold">Result:</h2>
           <div className="w-full p-2 rounded font-mono bg-gray-100 flex items-center justify-between">
             <p className="text-xl">{result}</p>
-            <button onClick={() => setCopied(true)}>
+            <button onClick={handleCopiedSubmit}>
               {copied ? (
                 <BiCheck className="text-emerald-600" />
               ) : (
-                <BiClipboard className="hover:text-zinc-300" />
+                <BiClipboard className="hover:text-zinc-500 transition-colors duration-200 ease-in-out" />
               )}
             </button>
           </div>
@@ -106,6 +113,8 @@ export default function Form() {
           </p>
         </div>
       )}
+
+      <DiscordTimestampTable timestamp={result} />
     </div>
   );
 }
