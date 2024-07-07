@@ -5,28 +5,39 @@ import {
   TimestampResponse,
   ErrorResponse,
 } from "@/types/claude";
+import { toZonedTime, format } from "date-fns-tz";
+import { parse, parseISO } from "date-fns";
 
 export const runtime = "edge";
 
-function parseDateTime(input: string): Date {
+function parseDateTime(input: string, timeZone: string): Date {
   console.log("Parsing input:", input);
-  const now = new Date();
   const lowerInput = input.toLowerCase();
+
+  // Try parsing as an absolute date first
+  try {
+    const parsedDate = toZonedTime(new Date(input), timeZone);
+    if (!isNaN(parsedDate.getTime())) {
+      console.log("Parsed as absolute date:", parsedDate);
+      return parsedDate;
+    }
+  } catch (error) {
+    console.log("Failed to parse as absolute date, trying relative parsing");
+  }
+
+  // Relative date parsing
+  const now = toZonedTime(new Date(), timeZone);
+  let parsedDate: Date;
 
   if (lowerInput.includes("today")) {
     console.log("Parsing as today");
-    const timePart = lowerInput.split("at")[1]?.trim() || "00:00";
-    return parseTimeAndSetToDate(now, timePart);
-  }
-
-  if (lowerInput.includes("tomorrow")) {
+    parsedDate = parse(lowerInput, "yyyy-MM-dd HH:mm", now);
+  } else if (lowerInput.includes("tomorrow")) {
     console.log("Parsing as tomorrow");
-    now.setDate(now.getDate() + 1);
-    const timePart = lowerInput.split("at")[1]?.trim() || "00:00";
-    return parseTimeAndSetToDate(now, timePart);
-  }
-
-  if (lowerInput.includes("next")) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    parsedDate = parse(lowerInput, "yyyy-MM-dd HH:mm", tomorrow);
+  } else if (lowerInput.includes("next")) {
     console.log("Parsing as next day of week");
     const daysOfWeek = [
       "sunday",
@@ -40,40 +51,21 @@ function parseDateTime(input: string): Date {
     const dayIndex = daysOfWeek.findIndex((day) => lowerInput.includes(day));
     if (dayIndex !== -1) {
       const daysUntilNext = (dayIndex + 7 - now.getDay()) % 7 || 7;
-      now.setDate(now.getDate() + daysUntilNext);
-      const timePart = lowerInput.split("at")[1]?.trim() || "00:00";
-      return parseTimeAndSetToDate(now, timePart);
+      const nextDay = new Date(now);
+      nextDay.setDate(nextDay.getDate() + daysUntilNext);
+      parsedDate = parse(lowerInput, "yyyy-MM-dd HH:mm", nextDay);
+    } else {
+      throw new Error("Unable to parse date and time");
     }
+  } else {
+    throw new Error("Unable to parse date and time");
   }
 
-  console.log("Attempting to parse as absolute date");
-  const parsedDate = new Date(input);
-  if (!isNaN(parsedDate.getTime())) {
-    console.log("Parsed as absolute date:", parsedDate);
-    return parsedDate;
+  if (isNaN(parsedDate.getTime())) {
+    throw new Error("Unable to parse date and time");
   }
 
-  console.log("Failed to parse date");
-  throw new Error("Unable to parse date and time");
-}
-
-function parseTimeAndSetToDate(date: Date, timePart: string): Date {
-  const timeMatch = timePart.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1]);
-    const minutes = parseInt(timeMatch[2] || "0");
-    const ampm = timeMatch[3]?.toLowerCase();
-
-    if (ampm === "pm" && hours < 12) {
-      hours += 12;
-    } else if (ampm === "am" && hours === 12) {
-      hours = 0;
-    }
-
-    date.setHours(hours, minutes, 0, 0);
-  }
-  console.log("Parsed date:", date);
-  return date;
+  return toZonedTime(parsedDate, timeZone);
 }
 
 export async function POST(
@@ -90,7 +82,7 @@ export async function POST(
       apiKey: anthropicApiKey,
     });
 
-    const { input } = await req.json();
+    const { input, timeZone } = await req.json();
 
     if (!input) {
       return NextResponse.json({ error: "Input is required" }, { status: 400 });
@@ -99,7 +91,7 @@ export async function POST(
     console.log("Received input:", input);
 
     try {
-      const parsedDate = parseDateTime(input);
+      const parsedDate = parseDateTime(input, timeZone);
       const timestamp = Math.floor(parsedDate.getTime() / 1000);
       console.log("Generated UNIX timestamp:", timestamp);
       if (isNaN(timestamp)) {
@@ -115,7 +107,7 @@ export async function POST(
         messages: [
           {
             role: "user",
-            content: `Parse the following date/time: "${input}". If it's relative (like 'next Thursday'), calculate the actual date based on today's date (${new Date().toISOString()}). Return only the parsed date and time in the format "YYYY-MM-DD HH:MM:SS", nothing else.`,
+            content: `Parse the following date/time: "${input}". If it's relative (like 'next Thursday'), calculate the actual date based on today's date (${new Date().toISOString()}). Return only the parsed date and time in the format "YYYY-MM-DD HH:mm:ss", nothing else.`,
           },
         ],
       })) as ClaudeResponse;
@@ -130,9 +122,8 @@ export async function POST(
         const extractedDateTime = completion.content[0].text.trim();
         console.log("Extracted date and time:", extractedDateTime);
 
-        const timestamp = Math.floor(
-          new Date(extractedDateTime).getTime() / 1000
-        );
+        const parsedDate = toZonedTime(parseISO(extractedDateTime), timeZone);
+        const timestamp = Math.floor(parsedDate.getTime() / 1000);
 
         if (isNaN(timestamp)) {
           console.error("Failed to parse date and time:", extractedDateTime);
